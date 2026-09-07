@@ -7,6 +7,7 @@ idf_component_register(
         "uart_protocol.c"
         "device_manager.c"
         "transaction_manager.c"
+        "uart_transport.c"
 
     INCLUDE_DIRS
         "."
@@ -18,4 +19,5 @@ idf_component_register(
         nvs_flash
         mqtt
         json
+        esp_driver_uart
 )

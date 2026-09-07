@@ -15,6 +15,7 @@
 #include "uart_protocol.h"
 #include "device_manager.h"
 #include "transaction_manager.h"
+#include "uart_transport.h"
 
 
 
@@ -358,6 +359,14 @@ void app_main(void)
     //--------------------------------------------------
 
     inicializar_nvs();
+
+    //--------------------------------------------------
+// UART TRANSPORT
+//--------------------------------------------------
+
+ESP_ERROR_CHECK(
+    uart_transport_init()
+);
 
   //--------------------------------------------------
     // UART PROTOCOL
