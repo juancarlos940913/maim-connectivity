@@ -1,5 +1,7 @@
 #include <stdio.h>
 
+#include <string.h>
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -310,6 +312,42 @@ static void transaction_timeout_task(
 }
 
 //==================================================
+// PRUEBA TEMPORAL UART TX
+//==================================================
+
+static void uart_tx_test_task(void *arg)
+{
+    const char *test_frame =
+        "<CMD,100,GET_STATE>";
+
+    vTaskDelay(
+        pdMS_TO_TICKS(10000)
+    );
+
+    ESP_LOGI(
+        "UART_TEST",
+        "Enviando trama de prueba al ATmega"
+    );
+
+    esp_err_t err =
+        uart_transport_send(
+            test_frame,
+            strlen(test_frame)
+        );
+
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(
+            "UART_TEST",
+            "Fallo enviando trama: %s",
+            esp_err_to_name(err)
+        );
+    }
+
+    vTaskDelete(NULL);
+}
+
+//==================================================
 // APP MAIN
 //==================================================
 
@@ -368,6 +406,7 @@ ESP_ERROR_CHECK(
     uart_transport_init()
 );
 
+
   //--------------------------------------------------
     // UART PROTOCOL
     //--------------------------------------------------
@@ -375,6 +414,22 @@ ESP_ERROR_CHECK(
     uart_protocol_init();
     device_manager_init();
     transaction_manager_init();
+
+    //--------------------------------------------------
+// UART RX
+//--------------------------------------------------
+
+ESP_ERROR_CHECK(
+    uart_transport_start_rx()
+);
+xTaskCreate(
+    uart_tx_test_task,
+    "uart_tx_test",
+    2048,
+    NULL,
+    5,
+    NULL
+);
 
     transaction_manager_set_result_callback(
     transaction_result_received
