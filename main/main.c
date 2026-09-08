@@ -4,6 +4,7 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/event_groups.h"
 
 #include "esp_log.h"
 #include "esp_err.h"
@@ -18,6 +19,28 @@
 #include "device_manager.h"
 #include "transaction_manager.h"
 #include "uart_transport.h"
+
+//==================================================
+// ESTADO DE SINCRONIZACION
+//==================================================
+
+static volatile bool controller_state_synced = false;
+static volatile bool controller_info_synced = false;
+
+static EventGroupHandle_t controller_sync_event_group = NULL;
+
+#define CONTROLLER_SYNC_STATE_BIT BIT0
+#define CONTROLLER_SYNC_INFO_BIT BIT1
+#define CONTROLLER_SYNC_STATE_DONE_BIT BIT2
+#define CONTROLLER_SYNC_INFO_DONE_BIT BIT3
+
+#define CONTROLLER_SYNC_SUCCESS_BITS                                           \
+    (CONTROLLER_SYNC_STATE_BIT | CONTROLLER_SYNC_INFO_BIT)
+
+#define CONTROLLER_SYNC_DONE_BITS                                              \
+    (CONTROLLER_SYNC_STATE_DONE_BIT | CONTROLLER_SYNC_INFO_DONE_BIT)
+
+#define CONTROLLER_SYNC_TIMEOUT_MS 5000
 
 //==================================================
 // LOG
@@ -155,6 +178,53 @@ static void transaction_result_received(
 
         if (state == TRANSACTION_STATE_COMPLETED)
         {
+            //--------------------------------------------------
+            // GET_STATE COMPLETADO
+            //--------------------------------------------------
+
+            if (strcmp(command, "GET_STATE") == 0)
+            {
+                controller_state_synced = true;
+
+                if (controller_sync_event_group != NULL)
+                {
+                    xEventGroupSetBits(
+                        controller_sync_event_group,
+                        CONTROLLER_SYNC_STATE_BIT |
+                            CONTROLLER_SYNC_STATE_DONE_BIT);
+                }
+
+                ESP_LOGI(TAG, "Estado del controlador sincronizado");
+            }
+
+            //--------------------------------------------------
+            // GET_INFO COMPLETADO
+            //--------------------------------------------------
+
+            else if (strcmp(command, "GET_INFO") == 0)
+            {
+                const device_controller_info_t *controller_info =
+                    device_manager_get_controller_info();
+
+                if (controller_info != NULL && controller_info->valid)
+                {
+                    controller_info_synced = true;
+                    if (controller_sync_event_group != NULL)
+                    {
+                        xEventGroupSetBits(
+                            controller_sync_event_group,
+                            CONTROLLER_SYNC_INFO_BIT |
+                                CONTROLLER_SYNC_INFO_DONE_BIT);
+                    }
+
+                    ESP_LOGI(TAG, "Identidad del controlador sincronizada");
+                }
+                else
+                {
+                    ESP_LOGW(TAG, "GET_INFO completo sin identidad valida");
+                }
+            }
+
             ESP_LOGI(TAG, "Transaccion interna completada | CMD=%s", command);
 
             return;
@@ -163,6 +233,26 @@ static void transaction_result_received(
         if (state == TRANSACTION_STATE_REJECTED ||
             state == TRANSACTION_STATE_FAILED)
         {
+            //--------------------------------------------------
+            // MARCAR SINCRONIZACION COMO FINALIZADA
+            //--------------------------------------------------
+
+            if (controller_sync_event_group != NULL)
+            {
+                if (strcmp(command, "GET_STATE") == 0)
+                {
+                    xEventGroupSetBits(
+                        controller_sync_event_group,
+                        CONTROLLER_SYNC_STATE_DONE_BIT);
+                }
+                else if (strcmp(command, "GET_INFO") == 0)
+                {
+                    xEventGroupSetBits(
+                        controller_sync_event_group,
+                        CONTROLLER_SYNC_INFO_DONE_BIT);
+                }
+            }
+
             ESP_LOGW(
                 TAG,
                 "Transaccion interna fallo | CMD=%s | Reason=%s",
@@ -285,6 +375,13 @@ static void transaction_timeout_task(void *arg)
 
 static esp_err_t sync_controller_state(void)
 {
+    controller_state_synced = false;
+    if (controller_sync_event_group != NULL)
+    {
+        xEventGroupClearBits(
+            controller_sync_event_group,
+            CONTROLLER_SYNC_STATE_BIT | CONTROLLER_SYNC_STATE_DONE_BIT);
+    }
     uint16_t uart_id = 0;
 
     esp_err_t err =
@@ -312,6 +409,13 @@ static esp_err_t sync_controller_state(void)
 
 static esp_err_t sync_controller_info(void)
 {
+    controller_state_synced = false;
+    if (controller_sync_event_group != NULL)
+    {
+        xEventGroupClearBits(
+            controller_sync_event_group,
+            CONTROLLER_SYNC_INFO_BIT | CONTROLLER_SYNC_INFO_DONE_BIT);
+    }
     uint16_t uart_id = 0;
 
     esp_err_t err =
@@ -330,6 +434,55 @@ static esp_err_t sync_controller_info(void)
     ESP_LOGI(TAG, "Sincronizacion de identidad iniciada | UART ID=%u", uart_id);
 
     return ESP_OK;
+}
+
+//==================================================
+// ESPERAR SINCRONIZACION DEL CONTROLADOR
+//==================================================
+
+static bool wait_for_controller_sync(void)
+{
+    if (controller_sync_event_group == NULL)
+    {
+        ESP_LOGE(TAG, "EventGroup de sincronizacion no disponible");
+
+        return false;
+    }
+
+    ESP_LOGI(TAG, "Esperando sincronizacion completa del controlador...");
+
+    EventBits_t bits = xEventGroupWaitBits(
+        controller_sync_event_group,
+        CONTROLLER_SYNC_DONE_BITS,
+        pdFALSE,
+        pdTRUE,
+        pdMS_TO_TICKS(CONTROLLER_SYNC_TIMEOUT_MS));
+
+    bool state_ready = (bits & CONTROLLER_SYNC_STATE_BIT) != 0;
+
+    bool info_ready = (bits & CONTROLLER_SYNC_INFO_BIT) != 0;
+
+    bool state_done = (bits & CONTROLLER_SYNC_STATE_DONE_BIT) != 0;
+
+    bool info_done = (bits & CONTROLLER_SYNC_INFO_DONE_BIT) != 0;
+
+    if (state_ready && info_ready)
+    {
+        ESP_LOGI(TAG, "Controlador completamente sincronizado");
+
+        return true;
+    }
+
+    ESP_LOGW(
+        TAG,
+        "Sincronizacion incompleta | STATE=%s | INFO=%s | "
+        "STATE_DONE=%s | INFO_DONE=%s",
+        state_ready ? "OK" : "FAILED",
+        info_ready ? "OK" : "FAILED",
+        state_done ? "YES" : "NO",
+        info_done ? "YES" : "NO");
+
+    return false;
 }
 
 //==================================================
@@ -371,6 +524,21 @@ void app_main(void)
     uart_protocol_init();
     device_manager_init();
     transaction_manager_init();
+
+    //--------------------------------------------------
+    // EVENT GROUP DE SINCRONIZACION
+    //--------------------------------------------------
+
+    controller_sync_event_group = xEventGroupCreate();
+
+    if (controller_sync_event_group == NULL)
+    {
+        ESP_LOGE(TAG, "ERROR creando EventGroup de sincronizacion");
+
+        abort();
+    }
+
+    ESP_LOGI(TAG, "EventGroup de sincronizacion creado");
 
     //--------------------------------------------------
     // CALLBACKS UART / DEVICE / TRANSACTIONS
@@ -470,7 +638,24 @@ void app_main(void)
 
     if (time_err != ESP_OK)
     {
-        ESP_LOGW(TAG, "Continuando sin hora sincronizada");
+        ESP_LOGW(
+            TAG, "Hora no sincronizada | MQTT continuara en modo degradado");
+    }
+    else
+    {
+        ESP_LOGI(TAG, "Hora del sistema lista para MQTT");
+    }
+
+    //--------------------------------------------------
+    // ESPERAR CONTROLADOR
+    //--------------------------------------------------
+
+    bool controller_ready = wait_for_controller_sync();
+
+    if (!controller_ready)
+    {
+        ESP_LOGW(
+            TAG, "Continuando MQTT con controlador parcialmente sincronizado");
     }
 
     //--------------------------------------------------

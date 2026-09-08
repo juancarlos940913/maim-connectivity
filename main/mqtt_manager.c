@@ -838,6 +838,14 @@ esp_err_t mqtt_manager_publish_state(void)
     cJSON_AddStringToObject(network, "ip", ip);
 
     //--------------------------------------------------
+    // TIME
+    //--------------------------------------------------
+
+    cJSON *time_info = cJSON_AddObjectToObject(root, "time");
+
+    cJSON_AddBoolToObject(time_info, "synced", time_manager_is_synced());
+
+    //--------------------------------------------------
     // FIRMWARE
     //--------------------------------------------------
 
