@@ -49,10 +49,7 @@ esp_err_t time_manager_init(void)
         return ESP_OK;
     }
 
-    ESP_LOGI(
-        TAG,
-        "Inicializando sincronizacion SNTP"
-    );
+    ESP_LOGI(TAG, "Inicializando sincronizacion SNTP");
 
     //--------------------------------------------------
     // ZONA HORARIA
@@ -65,11 +62,7 @@ esp_err_t time_manager_init(void)
     // Mexico central actualmente UTC-6 sin DST.
     //--------------------------------------------------
 
-    setenv(
-        "TZ",
-        "CST6",
-        1
-    );
+    setenv("TZ", "CST6", 1);
 
     tzset();
 
@@ -77,54 +70,33 @@ esp_err_t time_manager_init(void)
     // CONFIGURACION SNTP
     //--------------------------------------------------
 
-    esp_sntp_config_t config =
-        ESP_NETIF_SNTP_DEFAULT_CONFIG_MULTIPLE(
-            2,
-            ESP_SNTP_SERVER_LIST(
-                "pool.ntp.org"
-            )
-        );
+    esp_sntp_config_t config = ESP_NETIF_SNTP_DEFAULT_CONFIG_MULTIPLE(
+        2, ESP_SNTP_SERVER_LIST("pool.ntp.org"));
 
     //--------------------------------------------------
     // INICIALIZAR
     //--------------------------------------------------
 
-    esp_err_t err =
-        esp_netif_sntp_init(
-            &config
-        );
+    esp_err_t err = esp_netif_sntp_init(&config);
 
     if (err != ESP_OK)
     {
-        ESP_LOGE(
-            TAG,
-            "Error inicializando SNTP: %s",
-            esp_err_to_name(err)
-        );
+        ESP_LOGE(TAG, "Error inicializando SNTP: %s", esp_err_to_name(err));
 
         return err;
     }
 
-    ESP_LOGI(
-        TAG,
-        "Esperando sincronizacion de hora..."
-    );
+    ESP_LOGI(TAG, "Esperando sincronizacion de hora...");
 
     //--------------------------------------------------
     // ESPERAR MAXIMO 15 SEGUNDOS
     //--------------------------------------------------
 
-    err =
-        esp_netif_sntp_sync_wait(
-            pdMS_TO_TICKS(15000)
-        );
+    err = esp_netif_sntp_sync_wait(pdMS_TO_TICKS(15000));
 
     if (err != ESP_OK)
     {
-        ESP_LOGW(
-            TAG,
-            "No se obtuvo hora SNTP dentro del tiempo esperado"
-        );
+        ESP_LOGW(TAG, "No se obtuvo hora SNTP dentro del tiempo esperado");
 
         return err;
     }
@@ -135,10 +107,7 @@ esp_err_t time_manager_init(void)
 
     if (!time_is_valid())
     {
-        ESP_LOGE(
-            TAG,
-            "SNTP respondio pero la hora no es valida"
-        );
+        ESP_LOGE(TAG, "SNTP respondio pero la hora no es valida");
 
         return ESP_FAIL;
     }
@@ -151,25 +120,12 @@ esp_err_t time_manager_init(void)
 
     char local_time[32];
 
-    if (
-        time_manager_get_local_time(
-            local_time,
-            sizeof(local_time)
-        ) == ESP_OK
-    )
+    if (time_manager_get_local_time(local_time, sizeof(local_time)) == ESP_OK)
     {
-        ESP_LOGI(
-            TAG,
-            "Hora sincronizada: %s",
-            local_time
-        );
+        ESP_LOGI(TAG, "Hora sincronizada: %s", local_time);
     }
 
-    ESP_LOGI(
-        TAG,
-        "Unix timestamp: %lld",
-        time_manager_get_timestamp()
-    );
+    ESP_LOGI(TAG, "Unix timestamp: %lld", time_manager_get_timestamp());
 
     return ESP_OK;
 }
@@ -182,8 +138,7 @@ bool time_manager_is_synced(void)
 {
     if (!time_synced)
     {
-        time_synced =
-            time_is_valid();
+        time_synced = time_is_valid();
     }
 
     return time_synced;
@@ -200,8 +155,7 @@ int64_t time_manager_get_timestamp(void)
         return 0;
     }
 
-    time_t now =
-        time(NULL);
+    time_t now = time(NULL);
 
     return (int64_t)now;
 }
@@ -210,15 +164,9 @@ int64_t time_manager_get_timestamp(void)
 // HORA LOCAL
 //==================================================
 
-esp_err_t time_manager_get_local_time(
-    char *buffer,
-    size_t buffer_size
-)
+esp_err_t time_manager_get_local_time(char *buffer, size_t buffer_size)
 {
-    if (
-        buffer == NULL ||
-        buffer_size == 0
-    )
+    if (buffer == NULL || buffer_size == 0)
     {
         return ESP_ERR_INVALID_ARG;
     }
@@ -228,23 +176,14 @@ esp_err_t time_manager_get_local_time(
         return ESP_ERR_INVALID_STATE;
     }
 
-    time_t now =
-        time(NULL);
+    time_t now = time(NULL);
 
     struct tm timeinfo;
 
-    localtime_r(
-        &now,
-        &timeinfo
-    );
+    localtime_r(&now, &timeinfo);
 
     size_t result =
-        strftime(
-            buffer,
-            buffer_size,
-            "%Y-%m-%d %H:%M:%S",
-            &timeinfo
-        );
+        strftime(buffer, buffer_size, "%Y-%m-%d %H:%M:%S", &timeinfo);
 
     if (result == 0)
     {

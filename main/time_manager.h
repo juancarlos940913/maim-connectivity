@@ -50,7 +50,4 @@ int64_t time_manager_get_timestamp(void);
  * Ejemplo:
  * 2026-08-11 16:45:20
  */
-esp_err_t time_manager_get_local_time(
-    char *buffer,
-    size_t buffer_size
-);
+esp_err_t time_manager_get_local_time(char *buffer, size_t buffer_size);

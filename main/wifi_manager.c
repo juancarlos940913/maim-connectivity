@@ -34,20 +34,13 @@ static esp_event_handler_instance_t instance_ip_event;
 //==================================================
 
 static void wifi_event_handler(
-    void *arg,
-    esp_event_base_t event_base,
-    int32_t event_id,
-    void *event_data
-)
+    void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
     //--------------------------------------------------
     // WIFI INICIADO
     //--------------------------------------------------
 
-    if (
-        event_base == WIFI_EVENT &&
-        event_id == WIFI_EVENT_STA_START
-    )
+    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START)
     {
         ESP_LOGI(TAG, "WiFi iniciado");
 
@@ -58,8 +51,7 @@ static void wifi_event_handler(
             ESP_LOGE(
                 TAG,
                 "Error al iniciar conexion WiFi: %s",
-                esp_err_to_name(err)
-            );
+                esp_err_to_name(err));
         }
 
         return;
@@ -69,21 +61,14 @@ static void wifi_event_handler(
     // WIFI DESCONECTADO
     //--------------------------------------------------
 
-    if (
-        event_base == WIFI_EVENT &&
-        event_id == WIFI_EVENT_STA_DISCONNECTED
-    )
+    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED)
     {
         wifi_connected = false;
 
         wifi_event_sta_disconnected_t *event =
             (wifi_event_sta_disconnected_t *)event_data;
 
-        ESP_LOGW(
-            TAG,
-            "WiFi desconectado. Razon: %d",
-            event->reason
-        );
+        ESP_LOGW(TAG, "WiFi desconectado. Razon: %d", event->reason);
 
         if (retry_count < WIFI_MANAGER_MAX_RETRIES)
         {
@@ -93,18 +78,13 @@ static void wifi_event_handler(
                 TAG,
                 "Reintentando conexion WiFi (%u/%u)",
                 retry_count,
-                WIFI_MANAGER_MAX_RETRIES
-            );
+                WIFI_MANAGER_MAX_RETRIES);
 
             esp_err_t err = esp_wifi_connect();
 
             if (err != ESP_OK)
             {
-                ESP_LOGE(
-                    TAG,
-                    "Error al reconectar: %s",
-                    esp_err_to_name(err)
-                );
+                ESP_LOGE(TAG, "Error al reconectar: %s", esp_err_to_name(err));
             }
         }
         else
@@ -112,8 +92,7 @@ static void wifi_event_handler(
             ESP_LOGE(
                 TAG,
                 "No fue posible conectar despues de %u intentos",
-                WIFI_MANAGER_MAX_RETRIES
-            );
+                WIFI_MANAGER_MAX_RETRIES);
         }
 
         return;
@@ -123,39 +102,20 @@ static void wifi_event_handler(
     // IP OBTENIDA
     //--------------------------------------------------
 
-    if (
-        event_base == IP_EVENT &&
-        event_id == IP_EVENT_STA_GOT_IP
-    )
+    if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
     {
-        ip_event_got_ip_t *event =
-            (ip_event_got_ip_t *)event_data;
+        ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
 
         wifi_connected = true;
         retry_count = 0;
 
-        ESP_LOGI(
-            TAG,
-            "WiFi conectado correctamente"
-        );
+        ESP_LOGI(TAG, "WiFi conectado correctamente");
 
-        ESP_LOGI(
-            TAG,
-            "IP: " IPSTR,
-            IP2STR(&event->ip_info.ip)
-        );
+        ESP_LOGI(TAG, "IP: " IPSTR, IP2STR(&event->ip_info.ip));
 
-        ESP_LOGI(
-            TAG,
-            "Gateway: " IPSTR,
-            IP2STR(&event->ip_info.gw)
-        );
+        ESP_LOGI(TAG, "Gateway: " IPSTR, IP2STR(&event->ip_info.gw));
 
-        ESP_LOGI(
-            TAG,
-            "Mascara: " IPSTR,
-            IP2STR(&event->ip_info.netmask)
-        );
+        ESP_LOGI(TAG, "Mascara: " IPSTR, IP2STR(&event->ip_info.netmask));
 
         return;
     }
@@ -165,10 +125,7 @@ static void wifi_event_handler(
 // INICIALIZAR WIFI
 //==================================================
 
-esp_err_t wifi_manager_init(
-    const char *ssid,
-    const char *password
-)
+esp_err_t wifi_manager_init(const char *ssid, const char *password)
 {
     if (ssid == NULL || password == NULL)
     {
@@ -185,11 +142,7 @@ esp_err_t wifi_manager_init(
 
     if (err != ESP_OK)
     {
-        ESP_LOGE(
-            TAG,
-            "esp_netif_init fallo: %s",
-            esp_err_to_name(err)
-        );
+        ESP_LOGE(TAG, "esp_netif_init fallo: %s", esp_err_to_name(err));
 
         return err;
     }
@@ -202,11 +155,7 @@ esp_err_t wifi_manager_init(
 
     if (err != ESP_OK)
     {
-        ESP_LOGE(
-            TAG,
-            "Event Loop fallo: %s",
-            esp_err_to_name(err)
-        );
+        ESP_LOGE(TAG, "Event Loop fallo: %s", esp_err_to_name(err));
 
         return err;
     }
@@ -215,15 +164,11 @@ esp_err_t wifi_manager_init(
     // INTERFAZ WIFI STA
     //--------------------------------------------------
 
-    wifi_netif =
-        esp_netif_create_default_wifi_sta();
+    wifi_netif = esp_netif_create_default_wifi_sta();
 
     if (wifi_netif == NULL)
     {
-        ESP_LOGE(
-            TAG,
-            "No fue posible crear interfaz WiFi STA"
-        );
+        ESP_LOGE(TAG, "No fue posible crear interfaz WiFi STA");
 
         return ESP_FAIL;
     }
@@ -232,18 +177,13 @@ esp_err_t wifi_manager_init(
     // DRIVER WIFI
     //--------------------------------------------------
 
-    wifi_init_config_t cfg =
-        WIFI_INIT_CONFIG_DEFAULT();
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
 
     err = esp_wifi_init(&cfg);
 
     if (err != ESP_OK)
     {
-        ESP_LOGE(
-            TAG,
-            "esp_wifi_init fallo: %s",
-            esp_err_to_name(err)
-        );
+        ESP_LOGE(TAG, "esp_wifi_init fallo: %s", esp_err_to_name(err));
 
         return err;
     }
@@ -257,8 +197,7 @@ esp_err_t wifi_manager_init(
         ESP_EVENT_ANY_ID,
         &wifi_event_handler,
         NULL,
-        &instance_wifi_event
-    );
+        &instance_wifi_event);
 
     if (err != ESP_OK)
     {
@@ -274,8 +213,7 @@ esp_err_t wifi_manager_init(
         IP_EVENT_STA_GOT_IP,
         &wifi_event_handler,
         NULL,
-        &instance_ip_event
-    );
+        &instance_ip_event);
 
     if (err != ESP_OK)
     {
@@ -289,23 +227,18 @@ esp_err_t wifi_manager_init(
     wifi_config_t wifi_config = {0};
 
     strncpy(
-        (char *)wifi_config.sta.ssid,
-        ssid,
-        sizeof(wifi_config.sta.ssid) - 1
-    );
+        (char *)wifi_config.sta.ssid, ssid, sizeof(wifi_config.sta.ssid) - 1);
 
     strncpy(
         (char *)wifi_config.sta.password,
         password,
-        sizeof(wifi_config.sta.password) - 1
-    );
+        sizeof(wifi_config.sta.password) - 1);
 
     //--------------------------------------------------
     // SEGURIDAD
     //--------------------------------------------------
 
-    wifi_config.sta.threshold.authmode =
-        WIFI_AUTH_WPA2_PSK;
+    wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
 
     //--------------------------------------------------
     // MODO STATION
@@ -322,10 +255,7 @@ esp_err_t wifi_manager_init(
     // APLICAR CONFIGURACIÓN
     //--------------------------------------------------
 
-    err = esp_wifi_set_config(
-        WIFI_IF_STA,
-        &wifi_config
-    );
+    err = esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
 
     if (err != ESP_OK)
     {
@@ -343,11 +273,7 @@ esp_err_t wifi_manager_init(
         return err;
     }
 
-    ESP_LOGI(
-        TAG,
-        "Intentando conectar a: %s",
-        ssid
-    );
+    ESP_LOGI(TAG, "Intentando conectar a: %s", ssid);
 
     return ESP_OK;
 }
@@ -374,8 +300,7 @@ int8_t wifi_manager_get_rssi(void)
 
     wifi_ap_record_t ap_info = {0};
 
-    esp_err_t err =
-        esp_wifi_sta_get_ap_info(&ap_info);
+    esp_err_t err = esp_wifi_sta_get_ap_info(&ap_info);
 
     if (err != ESP_OK)
     {
@@ -389,15 +314,9 @@ int8_t wifi_manager_get_rssi(void)
 // OBTENER IP
 //==================================================
 
-esp_err_t wifi_manager_get_ip(
-    char *buffer,
-    size_t buffer_size
-)
+esp_err_t wifi_manager_get_ip(char *buffer, size_t buffer_size)
 {
-    if (
-        buffer == NULL ||
-        buffer_size == 0
-    )
+    if (buffer == NULL || buffer_size == 0)
     {
         return ESP_ERR_INVALID_ARG;
     }
@@ -409,23 +328,14 @@ esp_err_t wifi_manager_get_ip(
 
     esp_netif_ip_info_t ip_info;
 
-    esp_err_t err =
-        esp_netif_get_ip_info(
-            wifi_netif,
-            &ip_info
-        );
+    esp_err_t err = esp_netif_get_ip_info(wifi_netif, &ip_info);
 
     if (err != ESP_OK)
     {
         return err;
     }
 
-    snprintf(
-        buffer,
-        buffer_size,
-        IPSTR,
-        IP2STR(&ip_info.ip)
-    );
+    snprintf(buffer, buffer_size, IPSTR, IP2STR(&ip_info.ip));
 
     return ESP_OK;
 }
@@ -438,10 +348,7 @@ esp_err_t wifi_manager_reconnect(void)
 {
     retry_count = 0;
 
-    ESP_LOGI(
-        TAG,
-        "Conexion WiFi solicitada"
-    );
+    ESP_LOGI(TAG, "Conexion WiFi solicitada");
 
     return esp_wifi_connect();
 }
@@ -454,10 +361,7 @@ esp_err_t wifi_manager_disconnect(void)
 {
     wifi_connected = false;
 
-    ESP_LOGI(
-        TAG,
-        "Desconexion WiFi solicitada"
-    );
+    ESP_LOGI(TAG, "Desconexion WiFi solicitada");
 
     return esp_wifi_disconnect();
 }

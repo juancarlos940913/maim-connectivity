@@ -10,9 +10,9 @@
 // CONFIGURACION DEL PROTOCOLO
 //==================================================
 
-#define UART_PROTOCOL_MAX_FRAME_LEN   128
-#define UART_PROTOCOL_MAX_FIELDS      8
-#define UART_PROTOCOL_MAX_FIELD_LEN   32
+#define UART_PROTOCOL_MAX_FRAME_LEN 128
+#define UART_PROTOCOL_MAX_FIELDS 8
+#define UART_PROTOCOL_MAX_FIELD_LEN 32
 
 //==================================================
 // TIPOS DE TRAMA
@@ -54,8 +54,7 @@ typedef struct
 
     uint8_t field_count;
 
-    char fields[UART_PROTOCOL_MAX_FIELDS]
-               [UART_PROTOCOL_MAX_FIELD_LEN];
+    char fields[UART_PROTOCOL_MAX_FIELDS][UART_PROTOCOL_MAX_FIELD_LEN];
 
 } uart_protocol_frame_t;
 
@@ -64,8 +63,7 @@ typedef struct
 //==================================================
 
 typedef void (*uart_protocol_frame_callback_t)(
-    const uart_protocol_frame_t *frame
-);
+    const uart_protocol_frame_t *frame);
 
 //==================================================
 // INICIALIZACION
@@ -77,9 +75,7 @@ void uart_protocol_init(void);
 // CALLBACK
 //==================================================
 
-void uart_protocol_set_callback(
-    uart_protocol_frame_callback_t callback
-);
+void uart_protocol_set_callback(uart_protocol_frame_callback_t callback);
 
 //==================================================
 // ENTRADA DE CARACTERES
@@ -98,9 +94,7 @@ void uart_protocol_process_char(char c);
 //
 //==================================================
 
-esp_err_t uart_protocol_process_frame(
-    const char *frame_text
-);
+esp_err_t uart_protocol_process_frame(const char *frame_text);
 
 //==================================================
 // GENERAR TRAMA CMD
@@ -111,13 +105,10 @@ esp_err_t uart_protocol_build_command(
     size_t buffer_size,
     uint16_t transaction_id,
     const char *command,
-    const char *params
-);
+    const char *params);
 
 //==================================================
 // UTILIDADES
 //==================================================
 
-const char *uart_protocol_type_to_string(
-    uart_frame_type_t type
-);
+const char *uart_protocol_type_to_string(uart_frame_type_t type);

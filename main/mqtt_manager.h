@@ -37,9 +37,7 @@ esp_err_t mqtt_manager_publish_online(void);
 /**
  * @brief Publica availability = sleeping.
  */
-esp_err_t mqtt_manager_publish_sleeping(
-    uint32_t next_wakeup_sec
-);
+esp_err_t mqtt_manager_publish_sleeping(uint32_t next_wakeup_sec);
 
 /**
  * @brief Publica el estado general del dispositivo.
@@ -52,12 +50,7 @@ esp_err_t mqtt_manager_publish_state(void);
 esp_err_t mqtt_manager_publish_telemetry(void);
 
 esp_err_t mqtt_manager_publish_event(
-    const char *event_type,
-    const uart_protocol_frame_t *frame
-);
+    const char *event_type, const uart_protocol_frame_t *frame);
 
 esp_err_t mqtt_manager_publish_transaction_response(
-    const char *command_id,
-    const char *status,
-    const char *reason
-);
+    const char *command_id, const char *status, const char *reason);

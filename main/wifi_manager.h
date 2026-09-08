@@ -25,11 +25,8 @@
  * @return
  *      ESP_OK si la inicialización fue correcta.
  *      Código de error ESP-IDF en caso contrario.
-*/
-esp_err_t wifi_manager_init(
-    const char *ssid,
-    const char *password
-);
+ */
+esp_err_t wifi_manager_init(const char *ssid, const char *password);
 
 //==================================================
 // ESTADO
@@ -61,10 +58,7 @@ int8_t wifi_manager_get_rssi(void);
  *
  * @return ESP_OK si existe dirección válida.
  */
-esp_err_t wifi_manager_get_ip(
-    char *buffer,
-    size_t buffer_size
-);
+esp_err_t wifi_manager_get_ip(char *buffer, size_t buffer_size);
 
 /**
  * @brief Solicita una nueva conexión WiFi.

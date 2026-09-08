@@ -32,14 +32,10 @@ static uart_protocol_frame_callback_t frame_callback = NULL;
 // DECLARACIONES INTERNAS
 //==================================================
 
-static uart_frame_type_t identify_frame_type(
-    const char *type
-);
+static uart_frame_type_t identify_frame_type(const char *type);
 
-static esp_err_t parse_frame(
-    const char *frame_text,
-    uart_protocol_frame_t *frame
-);
+static esp_err_t
+parse_frame(const char *frame_text, uart_protocol_frame_t *frame);
 
 //==================================================
 // INICIALIZACION
@@ -47,28 +43,19 @@ static esp_err_t parse_frame(
 
 void uart_protocol_init(void)
 {
-    memset(
-        rx_buffer,
-        0,
-        sizeof(rx_buffer)
-    );
+    memset(rx_buffer, 0, sizeof(rx_buffer));
 
     rx_index = 0;
     receiving_frame = false;
 
-    ESP_LOGI(
-        TAG,
-        "MAIM Internal UART Protocol v1 inicializado"
-    );
+    ESP_LOGI(TAG, "MAIM Internal UART Protocol v1 inicializado");
 }
 
 //==================================================
 // CALLBACK
 //==================================================
 
-void uart_protocol_set_callback(
-    uart_protocol_frame_callback_t callback
-)
+void uart_protocol_set_callback(uart_protocol_frame_callback_t callback)
 {
     frame_callback = callback;
 }
@@ -77,9 +64,7 @@ void uart_protocol_set_callback(
 // IDENTIFICAR TIPO
 //==================================================
 
-static uart_frame_type_t identify_frame_type(
-    const char *type
-)
+static uart_frame_type_t identify_frame_type(const char *type)
 {
     if (strcmp(type, "HELLO") == 0)
         return UART_FRAME_HELLO;
@@ -130,15 +115,10 @@ static uart_frame_type_t identify_frame_type(
 // PARSEAR TRAMA
 //==================================================
 
-static esp_err_t parse_frame(
-    const char *frame_text,
-    uart_protocol_frame_t *frame
-)
+static esp_err_t
+parse_frame(const char *frame_text, uart_protocol_frame_t *frame)
 {
-    if (
-        frame_text == NULL ||
-        frame == NULL
-    )
+    if (frame_text == NULL || frame == NULL)
     {
         return ESP_ERR_INVALID_ARG;
     }
@@ -158,10 +138,7 @@ static esp_err_t parse_frame(
     // VALIDAR DELIMITADORES
     //--------------------------------------------------
 
-    if (
-        frame_text[0] != '<' ||
-        frame_text[len - 1] != '>'
-    )
+    if (frame_text[0] != '<' || frame_text[len - 1] != '>')
     {
         return ESP_ERR_INVALID_ARG;
     }
@@ -174,18 +151,12 @@ static esp_err_t parse_frame(
 
     size_t content_len = len - 2;
 
-    if (
-        content_len >= sizeof(temp)
-    )
+    if (content_len >= sizeof(temp))
     {
         return ESP_ERR_INVALID_SIZE;
     }
 
-    memcpy(
-        temp,
-        &frame_text[1],
-        content_len
-    );
+    memcpy(temp, &frame_text[1], content_len);
 
     temp[content_len] = '\0';
 
@@ -193,11 +164,7 @@ static esp_err_t parse_frame(
     // LIMPIAR RESULTADO
     //--------------------------------------------------
 
-    memset(
-        frame,
-        0,
-        sizeof(*frame)
-    );
+    memset(frame, 0, sizeof(*frame));
 
     //--------------------------------------------------
     // TOKENIZAR
@@ -205,12 +172,7 @@ static esp_err_t parse_frame(
 
     char *saveptr = NULL;
 
-    char *token =
-        strtok_r(
-            temp,
-            ",",
-            &saveptr
-        );
+    char *token = strtok_r(temp, ",", &saveptr);
 
     if (token == NULL)
     {
@@ -221,13 +183,9 @@ static esp_err_t parse_frame(
     // TIPO
     //--------------------------------------------------
 
-    frame->type =
-        identify_frame_type(token);
+    frame->type = identify_frame_type(token);
 
-    if (
-        frame->type ==
-        UART_FRAME_UNKNOWN
-    )
+    if (frame->type == UART_FRAME_UNKNOWN)
     {
         return ESP_ERR_NOT_SUPPORTED;
     }
@@ -238,45 +196,27 @@ static esp_err_t parse_frame(
 
     uint8_t field_index = 0;
 
-    while (
-        (token = strtok_r(
-            NULL,
-            ",",
-            &saveptr
-        )) != NULL
-    )
+    while ((token = strtok_r(NULL, ",", &saveptr)) != NULL)
     {
-        if (
-            field_index >=
-            UART_PROTOCOL_MAX_FIELDS
-        )
+        if (field_index >= UART_PROTOCOL_MAX_FIELDS)
         {
             return ESP_ERR_INVALID_SIZE;
         }
 
-        if (
-            strlen(token) >=
-            UART_PROTOCOL_MAX_FIELD_LEN
-        )
+        if (strlen(token) >= UART_PROTOCOL_MAX_FIELD_LEN)
         {
             return ESP_ERR_INVALID_SIZE;
         }
 
         strncpy(
-            frame->fields[field_index],
-            token,
-            UART_PROTOCOL_MAX_FIELD_LEN - 1
-        );
+            frame->fields[field_index], token, UART_PROTOCOL_MAX_FIELD_LEN - 1);
 
-        frame->fields[field_index]
-                     [UART_PROTOCOL_MAX_FIELD_LEN - 1]
-            = '\0';
+        frame->fields[field_index][UART_PROTOCOL_MAX_FIELD_LEN - 1] = '\0';
 
         field_index++;
     }
 
-    frame->field_count =
-        field_index;
+    frame->field_count = field_index;
 
     return ESP_OK;
 }
@@ -285,17 +225,11 @@ static esp_err_t parse_frame(
 // PROCESAR TRAMA COMPLETA
 //==================================================
 
-esp_err_t uart_protocol_process_frame(
-    const char *frame_text
-)
+esp_err_t uart_protocol_process_frame(const char *frame_text)
 {
     uart_protocol_frame_t frame;
 
-    esp_err_t err =
-        parse_frame(
-            frame_text,
-            &frame
-        );
+    esp_err_t err = parse_frame(frame_text, &frame);
 
     if (err != ESP_OK)
     {
@@ -303,8 +237,7 @@ esp_err_t uart_protocol_process_frame(
             TAG,
             "Trama invalida: %s | error=%s",
             frame_text,
-            esp_err_to_name(err)
-        );
+            esp_err_to_name(err));
 
         return err;
     }
@@ -316,24 +249,12 @@ esp_err_t uart_protocol_process_frame(
     ESP_LOGI(
         TAG,
         "Trama valida | Tipo=%s | Campos=%u",
-        uart_protocol_type_to_string(
-            frame.type
-        ),
-        frame.field_count
-    );
+        uart_protocol_type_to_string(frame.type),
+        frame.field_count);
 
-    for (
-        uint8_t i = 0;
-        i < frame.field_count;
-        i++
-    )
+    for (uint8_t i = 0; i < frame.field_count; i++)
     {
-        ESP_LOGI(
-            TAG,
-            "  Campo[%u] = %s",
-            i,
-            frame.fields[i]
-        );
+        ESP_LOGI(TAG, "  Campo[%u] = %s", i, frame.fields[i]);
     }
 
     //--------------------------------------------------
@@ -342,9 +263,7 @@ esp_err_t uart_protocol_process_frame(
 
     if (frame_callback != NULL)
     {
-        frame_callback(
-            &frame
-        );
+        frame_callback(&frame);
     }
 
     return ESP_OK;
@@ -383,15 +302,9 @@ void uart_protocol_process_char(char c)
     // OVERFLOW
     //--------------------------------------------------
 
-    if (
-        rx_index >=
-        UART_PROTOCOL_MAX_FRAME_LEN - 1
-    )
+    if (rx_index >= UART_PROTOCOL_MAX_FRAME_LEN - 1)
     {
-        ESP_LOGW(
-            TAG,
-            "Trama descartada por longitud excesiva"
-        );
+        ESP_LOGW(TAG, "Trama descartada por longitud excesiva");
 
         receiving_frame = false;
         rx_index = 0;
@@ -411,12 +324,9 @@ void uart_protocol_process_char(char c)
 
     if (c == '>')
     {
-        rx_buffer[rx_index] =
-            '\0';
+        rx_buffer[rx_index] = '\0';
 
-        uart_protocol_process_frame(
-            rx_buffer
-        );
+        uart_protocol_process_frame(rx_buffer);
 
         receiving_frame = false;
         rx_index = 0;
@@ -432,51 +342,32 @@ esp_err_t uart_protocol_build_command(
     size_t buffer_size,
     uint16_t transaction_id,
     const char *command,
-    const char *params
-)
+    const char *params)
 {
-    if (
-        buffer == NULL ||
-        buffer_size == 0 ||
-        command == NULL
-    )
+    if (buffer == NULL || buffer_size == 0 || command == NULL)
     {
         return ESP_ERR_INVALID_ARG;
     }
 
     int written;
 
-    if (
-        params != NULL &&
-        strlen(params) > 0
-    )
+    if (params != NULL && strlen(params) > 0)
     {
-        written =
-            snprintf(
-                buffer,
-                buffer_size,
-                "<CMD,%u,%s,%s>",
-                transaction_id,
-                command,
-                params
-            );
+        written = snprintf(
+            buffer,
+            buffer_size,
+            "<CMD,%u,%s,%s>",
+            transaction_id,
+            command,
+            params);
     }
     else
     {
-        written =
-            snprintf(
-                buffer,
-                buffer_size,
-                "<CMD,%u,%s>",
-                transaction_id,
-                command
-            );
+        written = snprintf(
+            buffer, buffer_size, "<CMD,%u,%s>", transaction_id, command);
     }
 
-    if (
-        written < 0 ||
-        written >= buffer_size
-    )
+    if (written < 0 || written >= buffer_size)
     {
         return ESP_ERR_INVALID_SIZE;
     }
@@ -488,55 +379,53 @@ esp_err_t uart_protocol_build_command(
 // TIPO → TEXTO
 //==================================================
 
-const char *uart_protocol_type_to_string(
-    uart_frame_type_t type
-)
+const char *uart_protocol_type_to_string(uart_frame_type_t type)
 {
     switch (type)
     {
-        case UART_FRAME_HELLO:
-            return "HELLO";
+    case UART_FRAME_HELLO:
+        return "HELLO";
 
-        case UART_FRAME_CMD:
-            return "CMD";
+    case UART_FRAME_CMD:
+        return "CMD";
 
-        case UART_FRAME_ACK:
-            return "ACK";
+    case UART_FRAME_ACK:
+        return "ACK";
 
-        case UART_FRAME_DONE:
-            return "DONE";
+    case UART_FRAME_DONE:
+        return "DONE";
 
-        case UART_FRAME_NACK:
-            return "NACK";
+    case UART_FRAME_NACK:
+        return "NACK";
 
-        case UART_FRAME_STATE:
-            return "STATE";
+    case UART_FRAME_STATE:
+        return "STATE";
 
-        case UART_FRAME_METRIC:
-            return "METRIC";
+    case UART_FRAME_METRIC:
+        return "METRIC";
 
-        case UART_FRAME_SENSOR:
-            return "SENSOR";
+    case UART_FRAME_SENSOR:
+        return "SENSOR";
 
-        case UART_FRAME_OUTPUT:
-            return "OUTPUT";
+    case UART_FRAME_OUTPUT:
+        return "OUTPUT";
 
-        case UART_FRAME_EVENT:
-            return "EVENT";
+    case UART_FRAME_EVENT:
+        return "EVENT";
 
-        case UART_FRAME_ERROR:
-            return "ERROR";
+    case UART_FRAME_ERROR:
+        return "ERROR";
 
-        case UART_FRAME_ERROR_CLEAR:
-            return "ERROR_CLEAR";
+    case UART_FRAME_ERROR_CLEAR:
+        return "ERROR_CLEAR";
 
-        case UART_FRAME_CONFIG:
-            return "CONFIG";
+    case UART_FRAME_CONFIG:
+        return "CONFIG";
 
-        case UART_FRAME_SNAPSHOT:
-            return "SNAPSHOT";
+    case UART_FRAME_SNAPSHOT:
+        return "SNAPSHOT";
 
-        default:
-            return "UNKNOWN";
+    default:
+        return "UNKNOWN";
     }
 }
