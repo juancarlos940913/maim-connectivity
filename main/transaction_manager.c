@@ -24,6 +24,8 @@ typedef struct
 
     uint16_t uart_id;
 
+    transaction_origin_t origin;
+
     char mqtt_command_id[TRANSACTION_MANAGER_COMMAND_ID_LEN];
 
     char command[TRANSACTION_MANAGER_COMMAND_LEN];
@@ -99,18 +101,23 @@ void transaction_manager_set_result_callback(
     result_callback = callback;
 }
 
-//==================================================
-// CREAR TRANSACCION
-//==================================================
+//--------------------------------------------------
+// TRANSACCION PRIVADA INTERNA
+//--------------------------------------------------
 
-esp_err_t transaction_manager_create(
+static esp_err_t create_transaction(
+    transaction_origin_t origin,
     const char *mqtt_command_id,
     const char *command,
     const char *params,
     uint16_t *uart_transaction_id)
 {
-    if (mqtt_command_id == NULL || command == NULL ||
-        uart_transaction_id == NULL)
+    if (command == NULL || uart_transaction_id == NULL)
+    {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    if (origin == TRANSACTION_ORIGIN_MQTT && mqtt_command_id == NULL)
     {
         return ESP_ERR_INVALID_ARG;
     }
@@ -154,18 +161,20 @@ esp_err_t transaction_manager_create(
 
     transaction->used = true;
     transaction->uart_id = id;
+    transaction->origin = origin;
 
-    strncpy(
-        transaction->mqtt_command_id,
-        mqtt_command_id,
-        sizeof(transaction->mqtt_command_id) - 1);
+    if (mqtt_command_id != NULL)
+    {
+        strncpy(
+            transaction->mqtt_command_id,
+            mqtt_command_id,
+            sizeof(transaction->mqtt_command_id) - 1);
+    }
 
     strncpy(transaction->command, command, sizeof(transaction->command) - 1);
 
     transaction->state = TRANSACTION_STATE_WAITING_ACK;
-
     transaction->created_us = esp_timer_get_time();
-
     transaction->ack_received_us = 0;
 
     *uart_transaction_id = id;
@@ -201,27 +210,62 @@ esp_err_t transaction_manager_create(
             command,
             esp_err_to_name(err));
 
-        //--------------------------------------------------
-        // La transaccion nunca salio correctamente.
-        // Liberamos el slot para no esperar un ACK
-        // que nunca llegara.
-        //--------------------------------------------------
-
         release_transaction(transaction);
 
         return err;
     }
 
-    ESP_LOGI(
-        TAG,
-        "Comando enviado | UART ID=%u | MQTT ID=%s | CMD=%s",
-        id,
-        mqtt_command_id,
-        command);
+    //--------------------------------------------------
+    // LOG
+    //--------------------------------------------------
+
+    if (origin == TRANSACTION_ORIGIN_MQTT)
+    {
+        ESP_LOGI(
+            TAG,
+            "Comando enviado | UART ID=%u | MQTT ID=%s | CMD=%s",
+            id,
+            mqtt_command_id,
+            command);
+    }
+    else
+    {
+        ESP_LOGI(
+            TAG, "Comando interno enviado | UART ID=%u | CMD=%s", id, command);
+    }
 
     ESP_LOGI(TAG, "Esperando ACK del controlador | UART ID=%u", id);
 
     return ESP_OK;
+}
+
+//==================================================
+// CREAR TRANSACCION
+//==================================================
+
+esp_err_t transaction_manager_create(
+    const char *mqtt_command_id,
+    const char *command,
+    const char *params,
+    uint16_t *uart_transaction_id)
+{
+    return create_transaction(
+        TRANSACTION_ORIGIN_MQTT,
+        mqtt_command_id,
+        command,
+        params,
+        uart_transaction_id);
+}
+
+esp_err_t transaction_manager_create_internal(
+    const char *command, const char *params, uint16_t *uart_transaction_id)
+{
+    return create_transaction(
+        TRANSACTION_ORIGIN_INTERNAL,
+        NULL,
+        command,
+        params,
+        uart_transaction_id);
 }
 
 //==================================================
@@ -295,6 +339,7 @@ esp_err_t transaction_manager_process_uart_response(
         if (result_callback != NULL)
         {
             result_callback(
+                transaction->origin,
                 transaction->mqtt_command_id,
                 transaction->command,
                 TRANSACTION_STATE_ACKED,
@@ -321,6 +366,7 @@ esp_err_t transaction_manager_process_uart_response(
         if (result_callback != NULL)
         {
             result_callback(
+                transaction->origin,
                 transaction->mqtt_command_id,
                 transaction->command,
                 TRANSACTION_STATE_COMPLETED,
@@ -357,6 +403,7 @@ esp_err_t transaction_manager_process_uart_response(
         if (result_callback != NULL)
         {
             result_callback(
+                transaction->origin,
                 transaction->mqtt_command_id,
                 transaction->command,
                 TRANSACTION_STATE_REJECTED,
@@ -425,6 +472,7 @@ void transaction_manager_process_timeouts(void)
                 if (result_callback != NULL)
                 {
                     result_callback(
+                        transaction->origin,
                         transaction->mqtt_command_id,
                         transaction->command,
                         TRANSACTION_STATE_FAILED,
@@ -465,6 +513,7 @@ void transaction_manager_process_timeouts(void)
                 if (result_callback != NULL)
                 {
                     result_callback(
+                        transaction->origin,
                         transaction->mqtt_command_id,
                         transaction->command,
                         TRANSACTION_STATE_FAILED,

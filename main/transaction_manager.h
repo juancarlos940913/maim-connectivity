@@ -38,10 +38,22 @@ typedef enum
 } transaction_state_t;
 
 //==================================================
+// ORIGEN DE TRANSACCION
+//==================================================
+
+typedef enum
+{
+    TRANSACTION_ORIGIN_MQTT = 0,
+    TRANSACTION_ORIGIN_INTERNAL
+
+} transaction_origin_t;
+
+//==================================================
 // CALLBACK
 //==================================================
 
 typedef void (*transaction_manager_result_callback_t)(
+    transaction_origin_t origin,
     const char *mqtt_command_id,
     const char *command,
     transaction_state_t state,
@@ -69,6 +81,9 @@ esp_err_t transaction_manager_create(
     const char *command,
     const char *params,
     uint16_t *uart_transaction_id);
+
+esp_err_t transaction_manager_create_internal(
+    const char *command, const char *params, uint16_t *uart_transaction_id);
 
 //==================================================
 // PROCESAR RESPUESTA UART

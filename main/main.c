@@ -134,11 +134,47 @@ static void device_event_received(
 }
 
 static void transaction_result_received(
+    transaction_origin_t origin,
     const char *mqtt_command_id,
     const char *command,
     transaction_state_t state,
     const char *reason)
 {
+    //--------------------------------------------------
+    // TRANSACCIONES INTERNAS
+    //--------------------------------------------------
+
+    if (origin == TRANSACTION_ORIGIN_INTERNAL)
+    {
+        if (state == TRANSACTION_STATE_ACKED)
+        {
+            ESP_LOGI(TAG, "Transaccion interna ACK | CMD=%s", command);
+
+            return;
+        }
+
+        if (state == TRANSACTION_STATE_COMPLETED)
+        {
+            ESP_LOGI(TAG, "Transaccion interna completada | CMD=%s", command);
+
+            return;
+        }
+
+        if (state == TRANSACTION_STATE_REJECTED ||
+            state == TRANSACTION_STATE_FAILED)
+        {
+            ESP_LOGW(
+                TAG,
+                "Transaccion interna fallo | CMD=%s | Reason=%s",
+                command,
+                reason != NULL ? reason : "UNKNOWN");
+
+            return;
+        }
+
+        return;
+    }
+
     switch (state)
     {
         //--------------------------------------------------
@@ -244,6 +280,33 @@ static void transaction_timeout_task(void *arg)
 }
 
 //==================================================
+// SINCRONIZACION INICIAL CON CONTROLADOR
+//==================================================
+
+static esp_err_t sync_controller_state(void)
+{
+    uint16_t uart_id = 0;
+
+    esp_err_t err =
+        transaction_manager_create_internal("GET_STATE", NULL, &uart_id);
+
+    if (err != ESP_OK)
+    {
+        ESP_LOGW(
+            TAG,
+            "No fue posible iniciar sincronizacion con controlador: %s",
+            esp_err_to_name(err));
+
+        return err;
+    }
+
+    ESP_LOGI(
+        TAG, "Sincronizacion con controlador iniciada | UART ID=%u", uart_id);
+
+    return ESP_OK;
+}
+
+//==================================================
 // APP MAIN
 //==================================================
 
@@ -318,6 +381,17 @@ void app_main(void)
     else
     {
         ESP_LOGE(TAG, "ERROR creando supervisor de timeouts");
+    }
+
+    //--------------------------------------------------
+    // SINCRONIZACION INICIAL DEL CONTROLADOR
+    //--------------------------------------------------
+
+    esp_err_t sync_err = sync_controller_state();
+
+    if (sync_err != ESP_OK)
+    {
+        ESP_LOGW(TAG, "Continuando arranque sin sincronizacion inicial");
     }
 
     BaseType_t task_result =
