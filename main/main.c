@@ -307,6 +307,32 @@ static esp_err_t sync_controller_state(void)
 }
 
 //==================================================
+// SINCRONIZACION DE IDENTIDAD DEL CONTROLADOR
+//==================================================
+
+static esp_err_t sync_controller_info(void)
+{
+    uint16_t uart_id = 0;
+
+    esp_err_t err =
+        transaction_manager_create_internal("GET_INFO", NULL, &uart_id);
+
+    if (err != ESP_OK)
+    {
+        ESP_LOGW(
+            TAG,
+            "No fue posible iniciar sincronizacion de identidad: %s",
+            esp_err_to_name(err));
+
+        return err;
+    }
+
+    ESP_LOGI(TAG, "Sincronizacion de identidad iniciada | UART ID=%u", uart_id);
+
+    return ESP_OK;
+}
+
+//==================================================
 // APP MAIN
 //==================================================
 
@@ -392,6 +418,17 @@ void app_main(void)
     if (sync_err != ESP_OK)
     {
         ESP_LOGW(TAG, "Continuando arranque sin sincronizacion inicial");
+    }
+
+    //--------------------------------------------------
+    // SINCRONIZACION DE IDENTIDAD DEL CONTROLADOR
+    //--------------------------------------------------
+
+    esp_err_t info_sync_err = sync_controller_info();
+
+    if (info_sync_err != ESP_OK)
+    {
+        ESP_LOGW(TAG, "Continuando arranque sin identidad del controlador");
     }
 
     BaseType_t task_result =

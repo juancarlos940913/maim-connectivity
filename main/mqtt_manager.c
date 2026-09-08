@@ -843,9 +843,34 @@ esp_err_t mqtt_manager_publish_state(void)
 
     cJSON *firmware = cJSON_AddObjectToObject(root, "firmware");
 
+    //--------------------------------------------------
+    // ESP32
+    //--------------------------------------------------
+
     cJSON *esp32 = cJSON_AddObjectToObject(firmware, "esp32");
 
     cJSON_AddStringToObject(esp32, "version", MAIM_ESP_FW_VERSION);
+
+    //--------------------------------------------------
+    // CONTROLADOR ATMEGA
+    //--------------------------------------------------
+
+    const device_controller_info_t *controller_info =
+        device_manager_get_controller_info();
+
+    if (controller_info != NULL && controller_info->valid)
+    {
+        cJSON *controller = cJSON_AddObjectToObject(firmware, "controller");
+
+        cJSON_AddStringToObject(controller, "mcu", controller_info->mcu);
+
+        cJSON_AddStringToObject(controller, "model", controller_info->model);
+
+        cJSON_AddStringToObject(controller, "hw_rev", controller_info->hw_rev);
+
+        cJSON_AddStringToObject(
+            controller, "version", controller_info->fw_version);
+    }
 
     //--------------------------------------------------
     // ERRORS
