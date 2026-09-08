@@ -42,7 +42,10 @@ typedef enum
 //==================================================
 
 typedef void (*transaction_manager_result_callback_t)(
-    const char *mqtt_command_id, transaction_state_t state, const char *reason);
+    const char *mqtt_command_id,
+    const char *command,
+    transaction_state_t state,
+    const char *reason);
 
 //==================================================
 // INICIALIZACION

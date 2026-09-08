@@ -24,6 +24,8 @@ static device_value_entry_t sensors[DEVICE_MANAGER_MAX_SENSORS];
 
 static device_value_entry_t outputs[DEVICE_MANAGER_MAX_OUTPUTS];
 
+static device_value_entry_t configs[DEVICE_MANAGER_MAX_CONFIGS];
+
 static device_error_entry_t errors[DEVICE_MANAGER_MAX_ERRORS];
 
 static device_controller_info_t controller_info;
@@ -78,6 +80,8 @@ void device_manager_init(void)
     memset(sensors, 0, sizeof(sensors));
 
     memset(outputs, 0, sizeof(outputs));
+
+    memset(configs, 0, sizeof(configs));
 
     memset(errors, 0, sizeof(errors));
 
@@ -721,8 +725,7 @@ esp_err_t device_manager_process_frame(const uart_protocol_frame_t *frame)
         //==================================================
         // CONFIG
         //
-        // Por ahora se valida y se informa.
-        // Posteriormente tendrá almacenamiento separado.
+        // <CONFIG,KEY,VALUE>
         //==================================================
 
     case UART_FRAME_CONFIG:
@@ -734,8 +737,20 @@ esp_err_t device_manager_process_frame(const uart_protocol_frame_t *frame)
             return ESP_ERR_INVALID_ARG;
         }
 
-        ESP_LOGI(
-            TAG, "CONFIG recibido | %s=%s", frame->fields[0], frame->fields[1]);
+        err = set_value(
+            configs,
+            DEVICE_MANAGER_MAX_CONFIGS,
+            frame->fields[0],
+            frame->fields[1]);
+
+        if (err == ESP_OK)
+        {
+            ESP_LOGI(
+                TAG,
+                "CONFIG actualizado | %s=%s",
+                frame->fields[0],
+                frame->fields[1]);
+        }
 
         break;
     }
@@ -826,6 +841,11 @@ const char *device_manager_get_sensor(const char *key)
 const char *device_manager_get_output(const char *key)
 {
     return get_value(outputs, DEVICE_MANAGER_MAX_OUTPUTS, key);
+}
+
+const char *device_manager_get_config(const char *key)
+{
+    return get_value(configs, DEVICE_MANAGER_MAX_CONFIGS, key);
 }
 
 //==================================================

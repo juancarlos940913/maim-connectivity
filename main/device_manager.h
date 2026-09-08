@@ -16,6 +16,7 @@
 #define DEVICE_MANAGER_MAX_METRICS 24
 #define DEVICE_MANAGER_MAX_SENSORS 32
 #define DEVICE_MANAGER_MAX_OUTPUTS 24
+#define DEVICE_MANAGER_MAX_CONFIGS 16
 #define DEVICE_MANAGER_MAX_ERRORS 16
 
 #define DEVICE_MANAGER_KEY_LEN 32
@@ -130,6 +131,8 @@ const char *device_manager_get_metric(const char *key);
 const char *device_manager_get_sensor(const char *key);
 
 const char *device_manager_get_output(const char *key);
+
+const char *device_manager_get_config(const char *key);
 
 //==================================================
 // GETTERS CON CONVERSION

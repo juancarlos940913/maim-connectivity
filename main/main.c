@@ -134,7 +134,10 @@ static void device_event_received(
 }
 
 static void transaction_result_received(
-    const char *mqtt_command_id, transaction_state_t state, const char *reason)
+    const char *mqtt_command_id,
+    const char *command,
+    transaction_state_t state,
+    const char *reason)
 {
     switch (state)
     {
@@ -156,6 +159,31 @@ static void transaction_result_received(
 
     case TRANSACTION_STATE_COMPLETED:
     {
+        //--------------------------------------------------
+        // GET_STATE
+        //
+        // El DONE llega despues de SNAPSHOT END, por lo
+        // tanto el Device Manager ya contiene el estado
+        // actualizado del controlador.
+        //--------------------------------------------------
+
+        if (strcmp(command, "GET_STATE") == 0)
+        {
+            esp_err_t err = mqtt_manager_publish_state();
+
+            if (err != ESP_OK)
+            {
+                ESP_LOGW(
+                    TAG,
+                    "No fue posible publicar state/reported: %s",
+                    esp_err_to_name(err));
+            }
+        }
+
+        //--------------------------------------------------
+        // RESULTADO DE LA TRANSACCION
+        //--------------------------------------------------
+
         mqtt_manager_publish_transaction_response(
             mqtt_command_id, "SUCCESS", NULL);
 
@@ -256,12 +284,29 @@ void app_main(void)
     transaction_manager_init();
 
     //--------------------------------------------------
+    // CALLBACKS UART / DEVICE / TRANSACTIONS
+    //
+    // Todos deben quedar registrados ANTES de arrancar
+    // la tarea RX para evitar perder tramas tempranas.
+    //--------------------------------------------------
+
+    uart_protocol_set_callback(uart_frame_received);
+
+    device_manager_set_event_callback(device_event_received);
+
+    device_manager_set_transaction_callback(device_transaction_received);
+
+    transaction_manager_set_result_callback(transaction_result_received);
+
+    //--------------------------------------------------
     // UART RX
     //--------------------------------------------------
 
     ESP_ERROR_CHECK(uart_transport_start_rx());
 
-    transaction_manager_set_result_callback(transaction_result_received);
+    //--------------------------------------------------
+    // SUPERVISOR DE TRANSACCIONES
+    //--------------------------------------------------
 
     BaseType_t timeout_task_result = xTaskCreate(
         transaction_timeout_task, "transaction_timeout", 3072, NULL, 5, NULL);
@@ -274,12 +319,6 @@ void app_main(void)
     {
         ESP_LOGE(TAG, "ERROR creando supervisor de timeouts");
     }
-
-    uart_protocol_set_callback(uart_frame_received);
-
-    device_manager_set_event_callback(device_event_received);
-
-    device_manager_set_transaction_callback(device_transaction_received);
 
     BaseType_t task_result =
         xTaskCreate(serial_test_task, "serial_test", 4096, NULL, 5, NULL);

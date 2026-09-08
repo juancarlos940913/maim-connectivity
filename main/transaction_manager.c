@@ -295,7 +295,10 @@ esp_err_t transaction_manager_process_uart_response(
         if (result_callback != NULL)
         {
             result_callback(
-                transaction->mqtt_command_id, TRANSACTION_STATE_ACKED, NULL);
+                transaction->mqtt_command_id,
+                transaction->command,
+                TRANSACTION_STATE_ACKED,
+                NULL);
         }
 
         return ESP_OK;
@@ -319,6 +322,7 @@ esp_err_t transaction_manager_process_uart_response(
         {
             result_callback(
                 transaction->mqtt_command_id,
+                transaction->command,
                 TRANSACTION_STATE_COMPLETED,
                 NULL);
         }
@@ -354,6 +358,7 @@ esp_err_t transaction_manager_process_uart_response(
         {
             result_callback(
                 transaction->mqtt_command_id,
+                transaction->command,
                 TRANSACTION_STATE_REJECTED,
                 reason);
         }
@@ -421,6 +426,7 @@ void transaction_manager_process_timeouts(void)
                 {
                     result_callback(
                         transaction->mqtt_command_id,
+                        transaction->command,
                         TRANSACTION_STATE_FAILED,
                         "ACK_TIMEOUT");
                 }
@@ -460,6 +466,7 @@ void transaction_manager_process_timeouts(void)
                 {
                     result_callback(
                         transaction->mqtt_command_id,
+                        transaction->command,
                         TRANSACTION_STATE_FAILED,
                         "EXECUTION_TIMEOUT");
                 }

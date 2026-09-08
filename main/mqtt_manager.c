@@ -265,11 +265,26 @@ static void process_command(const char *payload, int payload_len)
 
     else if (strcmp(command, "GET_STATE") == 0)
     {
-        ESP_LOGI(TAG, "GET_STATE recibido");
+        uint16_t uart_id;
 
-        mqtt_manager_publish_state();
+        esp_err_t err =
+            transaction_manager_create(command_id, "GET_STATE", NULL, &uart_id);
 
-        publish_command_response(command_id, "SUCCESS", "STATE_PUBLISHED");
+        if (err != ESP_OK)
+        {
+            publish_command_response(
+                command_id, "FAILED", "UART_TRANSACTION_ERROR");
+
+            cJSON_Delete(root);
+            return;
+        }
+
+        ESP_LOGI(TAG, "GET_STATE enviado a controlador | UART ID=%u", uart_id);
+
+        /*
+         * No publicamos SUCCESS aqui.
+         * Esperamos ACK / SNAPSHOT / DONE del controlador.
+         */
     }
 
     else if (strcmp(command, "DISPENSE") == 0)
@@ -696,6 +711,20 @@ esp_err_t mqtt_manager_publish_state(void)
         cJSON_AddBoolToObject(state, "busy", strcmp(busy, "1") == 0);
     }
 
+    const char *power_source = device_manager_get_state("POWER_SOURCE");
+
+    if (power_source != NULL)
+    {
+        cJSON_AddStringToObject(state, "power_source", power_source);
+    }
+
+    const char *charging = device_manager_get_state("CHARGING");
+
+    if (charging != NULL)
+    {
+        cJSON_AddBoolToObject(state, "charging", strcmp(charging, "1") == 0);
+    }
+
     //--------------------------------------------------
     // METRICS
     //--------------------------------------------------
@@ -727,6 +756,26 @@ esp_err_t mqtt_manager_publish_state(void)
     }
 
     //--------------------------------------------------
+    // SENSORS
+    //--------------------------------------------------
+
+    cJSON *sensors = cJSON_AddObjectToObject(root, "sensors");
+
+    float battery_mv;
+
+    if (device_manager_get_sensor_float("BATTERY_MV", &battery_mv) == ESP_OK)
+    {
+        cJSON_AddNumberToObject(sensors, "battery_mv", battery_mv);
+    }
+
+    float battery_pct;
+
+    if (device_manager_get_sensor_float("BATTERY_PCT", &battery_pct) == ESP_OK)
+    {
+        cJSON_AddNumberToObject(sensors, "battery_pct", battery_pct);
+    }
+
+    //--------------------------------------------------
     // OUTPUTS
     //--------------------------------------------------
 
@@ -737,6 +786,41 @@ esp_err_t mqtt_manager_publish_state(void)
     if (device_manager_get_output_bool("VALVE", &valve) == ESP_OK)
     {
         cJSON_AddBoolToObject(outputs, "valve", valve);
+    }
+
+    //--------------------------------------------------
+    // CONFIG
+    //--------------------------------------------------
+
+    cJSON *config = cJSON_AddObjectToObject(root, "config");
+
+    const char *dispense_time = device_manager_get_config("DISPENSE_TIME_MS");
+
+    if (dispense_time != NULL)
+    {
+        char *endptr = NULL;
+
+        long value = strtol(dispense_time, &endptr, 10);
+
+        if (endptr != dispense_time && *endptr == '\0')
+        {
+            cJSON_AddNumberToObject(config, "dispense_time_ms", value);
+        }
+    }
+
+    const char *pulses_per_liter =
+        device_manager_get_config("PULSES_PER_LITER");
+
+    if (pulses_per_liter != NULL)
+    {
+        char *endptr = NULL;
+
+        float value = strtof(pulses_per_liter, &endptr);
+
+        if (endptr != pulses_per_liter && *endptr == '\0')
+        {
+            cJSON_AddNumberToObject(config, "pulses_per_liter", value);
+        }
     }
 
     //--------------------------------------------------

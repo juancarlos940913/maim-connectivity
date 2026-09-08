@@ -13,7 +13,7 @@
 // MQTT
 //==================================================
 
-#define MAIM_MQTT_HOST "192.168.1.85"
+#define MAIM_MQTT_HOST "192.168.1.87"
 #define MAIM_MQTT_PORT 1883
 
 #define MAIM_MQTT_ROOT "maim/v1/devices"
